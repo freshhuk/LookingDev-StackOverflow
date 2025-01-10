@@ -1,0 +1,8 @@
+package com.lookingdev.stackoverflow.Services;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class StackOverflowService {
+
+}
