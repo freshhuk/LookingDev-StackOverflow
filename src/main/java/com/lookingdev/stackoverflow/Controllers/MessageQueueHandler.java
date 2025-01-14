@@ -21,6 +21,8 @@ public class MessageQueueHandler {
     public void listenAPIStatus(MessageStatus message){
         if(message.getAction().equals(QueueAction.GET_STACK_USER)){
             messageService.getStackOverflowUsers();
+        } else if (message.getAction().equals(QueueAction.INIT_DB)) {
+            messageService.initDB();
         }
     }
 
