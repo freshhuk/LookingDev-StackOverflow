@@ -3,7 +3,6 @@ package com.lookingdev.stackoverflow.Domain.Entities;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -16,7 +15,7 @@ import java.time.LocalDate;
 public class DeveloperProfile {
 
     @Id
-    private ObjectId id;
+    private Integer id;
 
     @Field
     private String platform;
