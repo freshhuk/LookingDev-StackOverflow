@@ -11,13 +11,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class StackOverflowService {
@@ -29,10 +30,32 @@ public class StackOverflowService {
     private static final String SITE = "stackoverflow";
     private static final Logger LOGGER = LoggerFactory.getLogger(StackOverflowService.class);
 
-    public List<DeveloperDTOModel> fetchUsers(int pageSize) {
-        OkHttpClient client = new OkHttpClient();
+    private final OkHttpClient client = new OkHttpClient.Builder()
+            .readTimeout(10, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .build();
 
-        String url = BASE_URL + "?site=" + SITE + "&pagesize=" + pageSize + "&key=" + API_KEY;
+    // Кэш для сохранения тегов пользователей
+    private final List<DeveloperDTOModel> cachedDevelopers = new ArrayList<>();
+
+    // Метод для ограничения скорости запросов
+    private void throttleRequests() {
+        try {
+            // Ограничиваем частоту запросов: 1 запрос каждые 34 мс (примерно 30 запросов/сек)
+            Thread.sleep(34);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Восстанавливаем статус прерывания
+        }
+    }
+
+    public List<DeveloperDTOModel> fetchUsers(int pageSize) {
+        // Проверяем, если данные уже есть в кэше, возвращаем их
+        if (!cachedDevelopers.isEmpty()) {
+            LOGGER.info("Returning cached developer data.");
+            return cachedDevelopers;
+        }
+
+        String url = BASE_URL + "?site=" + SITE + "&pagesize=" + 1 + "&key=" + API_KEY;
 
         Request request = new Request.Builder()
                 .url(url)
@@ -47,6 +70,9 @@ public class StackOverflowService {
                 String responseBody = response.body().string();
                 developers = parseUsers(responseBody);
                 LOGGER.info("Successfully fetched and parsed {} users.", developers.size());
+
+                // Сохраняем данные в кэш
+                cachedDevelopers.addAll(developers);
             } else {
                 LOGGER.error("Error fetching users: {}", response.code());
             }
@@ -77,7 +103,7 @@ public class StackOverflowService {
                 lastActivityDate = Instant.ofEpochSecond(lastAccessDate).atZone(ZoneId.systemDefault()).toLocalDate();
             }
 
-            // Get skills (tags) for this user
+            // Получаем теги пользователя (ограничиваем запросы к API)
             int userId = userObject.get("user_id").getAsInt();
             List<String> skills = fetchUserTags(userId);
 
@@ -98,7 +124,8 @@ public class StackOverflowService {
     }
 
     private List<String> fetchUserTags(int userId) {
-        OkHttpClient client = new OkHttpClient();
+        throttleRequests(); // Ограничиваем частоту запросов
+
         String url = "https://api.stackexchange.com/2.3/users/" + userId + "/tags?site=" + SITE + "&key=" + API_KEY;
 
         Request request = new Request.Builder()
@@ -107,6 +134,12 @@ public class StackOverflowService {
 
         List<String> tags = new ArrayList<>();
         try (Response response = client.newCall(request).execute()) {
+            if (response.code() == 429) { // Если API вернул Too Many Requests
+                LOGGER.warn("Received 429 Too Many Requests for user {}. Retrying in 1 second...", userId);
+                Thread.sleep(1000); // Ждём 1 секунду и повторяем запрос
+                return fetchUserTags(userId);
+            }
+
             if (response.isSuccessful() && response.body() != null) {
                 String responseBody = response.body().string();
                 JsonObject jsonObject = JsonParser.parseString(responseBody).getAsJsonObject();
@@ -120,10 +153,9 @@ public class StackOverflowService {
             } else {
                 LOGGER.warn("Failed to fetch tags for user {}: {}", userId, response.code());
             }
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             LOGGER.error("Exception fetching tags for user {}: {}", userId, e.toString());
         }
         return tags;
     }
-
 }

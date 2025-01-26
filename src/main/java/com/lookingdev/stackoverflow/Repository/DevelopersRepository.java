@@ -7,8 +7,8 @@ import org.springframework.data.mongodb.repository.Query;
 
 import java.util.List;
 
-public interface DevelopersRepository extends MongoRepository<DeveloperProfile, Integer> {
+public interface DevelopersRepository extends MongoRepository<DeveloperProfile, String> {
 
-    @Query("{ 'id': { $gt: ?1 } }")
-    List<DeveloperProfile> findDevelopersWithLimit(int lastId, Pageable pageable);
+    @Query("{ 'id': { $gt: ?0 } }")
+    List<DeveloperProfile> findDevelopersWithLimit(String lastId, Pageable pageable);
 }

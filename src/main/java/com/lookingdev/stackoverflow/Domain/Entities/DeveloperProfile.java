@@ -15,7 +15,7 @@ import java.time.LocalDate;
 public class DeveloperProfile {
 
     @Id
-    private Integer id;
+    private String id;
 
     @Field
     private String platform;

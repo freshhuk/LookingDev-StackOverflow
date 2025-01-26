@@ -34,7 +34,7 @@ public class ProfileProcessing {
         repository.saveAll(developers);
     }
 
-    public List<DeveloperDTOModel> getDevelopersDTO(int lastIndex){
+    public List<DeveloperDTOModel> getDevelopersDTO(String lastIndex){
 
         Pageable pageable = PageRequest.of(0, LIMIT_USERS);
         List<DeveloperProfile> developers = repository.findDevelopersWithLimit(lastIndex, pageable);

@@ -45,7 +45,7 @@ public class MessageService {
 
                 MessageModel messageWithData = new MessageModel();
                 messageWithData.setAction(QueueAction.GET_STACK_USER);
-                messageWithData.setDeveloperProfiles(profileService.getDevelopersDTO(lastIndex));
+                messageWithData.setDeveloperProfiles(profileService.getDevelopersDTO(lastIndex+""));
 
                 sendDataInQueue(queueStackName, messageWithData);
                 LOGGER.info("User was sent in queue");
