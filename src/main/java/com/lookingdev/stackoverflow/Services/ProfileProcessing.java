@@ -18,7 +18,6 @@ public class ProfileProcessing {
     private final DevelopersRepository repository;
 
     /* CONSTANTS */
-    private static final int USER_COUNT_IN_DB = 100;
     private static final int LIMIT_USERS = 10;
 
 
@@ -30,7 +29,7 @@ public class ProfileProcessing {
 
 
     public void initDatabase(){
-        List<DeveloperProfile> developers = parseToDeveloperProfile(overflowService.fetchUsers(USER_COUNT_IN_DB));
+        List<DeveloperProfile> developers = parseToDeveloperProfile(overflowService.fetchUsers());
         repository.saveAll(developers);
     }
 

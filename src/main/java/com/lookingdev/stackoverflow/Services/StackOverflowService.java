@@ -29,6 +29,7 @@ public class StackOverflowService {
     private static final String BASE_URL = "https://api.stackexchange.com/2.3/users";
     private static final String SITE = "stackoverflow";
     private static final Logger LOGGER = LoggerFactory.getLogger(StackOverflowService.class);
+    private static final int USER_COUNT_IN_DB = 2;
 
     private final OkHttpClient client = new OkHttpClient.Builder()
             .readTimeout(10, TimeUnit.SECONDS)
@@ -48,14 +49,14 @@ public class StackOverflowService {
         }
     }
 
-    public List<DeveloperDTOModel> fetchUsers(int pageSize) {
+    public List<DeveloperDTOModel> fetchUsers() {
         // Проверяем, если данные уже есть в кэше, возвращаем их
         if (!cachedDevelopers.isEmpty()) {
             LOGGER.info("Returning cached developer data.");
             return cachedDevelopers;
         }
 
-        String url = BASE_URL + "?site=" + SITE + "&pagesize=" + 1 + "&key=" + API_KEY;
+        String url = BASE_URL + "?site=" + SITE + "&pagesize=" + USER_COUNT_IN_DB + "&key=" + API_KEY;
 
         Request request = new Request.Builder()
                 .url(url)
