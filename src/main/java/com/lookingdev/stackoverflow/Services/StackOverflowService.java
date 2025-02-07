@@ -104,7 +104,6 @@ public class StackOverflowService {
                 lastActivityDate = Instant.ofEpochSecond(lastAccessDate).atZone(ZoneId.systemDefault()).toLocalDate();
             }
 
-            // Получаем теги пользователя (ограничиваем запросы к API)
             int userId = userObject.get("user_id").getAsInt();
             List<String> skills = fetchUserTags(userId);
 
