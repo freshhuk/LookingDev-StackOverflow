@@ -29,7 +29,7 @@ public class StackOverflowService {
     private static final String BASE_URL = "https://api.stackexchange.com/2.3/users";
     private static final String SITE = "stackoverflow";
     private static final Logger LOGGER = LoggerFactory.getLogger(StackOverflowService.class);
-    private static final int USER_COUNT_IN_DB = 2;
+    private static final int USER_COUNT_IN_DB = 6;
 
     private final OkHttpClient client = new OkHttpClient.Builder()
             .readTimeout(10, TimeUnit.SECONDS)
@@ -39,15 +39,7 @@ public class StackOverflowService {
     // Кэш для сохранения тегов пользователей
     private final List<DeveloperDTOModel> cachedDevelopers = new ArrayList<>();
 
-    // Метод для ограничения скорости запросов
-    private void throttleRequests() {
-        try {
-            // Ограничиваем частоту запросов: 1 запрос каждые 34 мс (примерно 30 запросов/сек)
-            Thread.sleep(34);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Восстанавливаем статус прерывания
-        }
-    }
+
 
     public List<DeveloperDTOModel> fetchUsers() {
         // Проверяем, если данные уже есть в кэше, возвращаем их
@@ -124,10 +116,9 @@ public class StackOverflowService {
     }
 
     private List<String> fetchUserTags(int userId) {
-        throttleRequests(); // Ограничиваем частоту запросов
 
-        String url = "https://api.stackexchange.com/2.3/users/" + userId + "/tags?site=" + SITE + "&key=" + API_KEY;
-
+        LOGGER.info("Метод был вызван но не рекурсия");
+        String url = "https://api.stackexchange.com/2.3/users/" + userId + "/tags?site=" + SITE;
         Request request = new Request.Builder()
                 .url(url)
                 .build();
@@ -137,7 +128,8 @@ public class StackOverflowService {
             if (response.code() == 429) { // Если API вернул Too Many Requests
                 LOGGER.warn("Received 429 Too Many Requests for user {}. Retrying in 1 second...", userId);
                 Thread.sleep(1000); // Ждём 1 секунду и повторяем запрос
-                return fetchUserTags(userId);
+                LOGGER.info("Метод был вызван рекурсия");
+                return null;
             }
 
             if (response.isSuccessful() && response.body() != null) {
@@ -151,7 +143,8 @@ public class StackOverflowService {
                     tags.add(tagName);
                 }
             } else {
-                LOGGER.warn("Failed to fetch tags for user {}: {}", userId, response.code());
+                String responseBody = response.body().string();
+                LOGGER.error("Failed to fetch tags for user {}: {} - Response: {}", userId, response.code(), responseBody);
             }
         } catch (IOException | InterruptedException e) {
             LOGGER.error("Exception fetching tags for user {}: {}", userId, e.toString());
