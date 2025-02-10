@@ -36,119 +36,146 @@ public class StackOverflowService {
             .connectTimeout(10, TimeUnit.SECONDS)
             .build();
 
-    // Кэш для сохранения тегов пользователей
     private final List<DeveloperDTOModel> cachedDevelopers = new ArrayList<>();
 
-
-
     public List<DeveloperDTOModel> fetchUsers() {
-        // Проверяем, если данные уже есть в кэше, возвращаем их
         if (!cachedDevelopers.isEmpty()) {
             LOGGER.info("Returning cached developer data.");
             return cachedDevelopers;
         }
 
         String url = BASE_URL + "?site=" + SITE + "&pagesize=" + USER_COUNT_IN_DB + "&key=" + API_KEY;
-
-        Request request = new Request.Builder()
-                .url(url)
-                .build();
-
-        Response response;
         List<DeveloperDTOModel> developers = new ArrayList<>();
 
-        try {
-            response = client.newCall(request).execute();
-            if (response.isSuccessful() && response.body() != null) {
-                String responseBody = response.body().string();
-                developers = parseUsers(responseBody);
+        try (Response response = executeRequest(url)) {
+            if (response != null && response.isSuccessful() && response.body() != null) {
+                developers = parseUsers(response.body().string());
                 LOGGER.info("Successfully fetched and parsed {} users.", developers.size());
-
-                // Сохраняем данные в кэш
                 cachedDevelopers.addAll(developers);
             } else {
-                LOGGER.error("Error fetching users: {}", response.code());
+                LOGGER.error("Error fetching users: {}", response != null ? response.code() : "null response");
             }
         } catch (IOException e) {
-            LOGGER.error("Exception during fetching users: {}", e.toString());
+            LOGGER.error("Exception during fetching users: {}", e.getMessage());
         }
+
         return developers;
     }
 
     private List<DeveloperDTOModel> parseUsers(String jsonResponse) {
         List<DeveloperDTOModel> developerList = new ArrayList<>();
 
-        JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
-        JsonArray usersArray = jsonObject.getAsJsonArray("items");
+        try {
+            JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
+            JsonArray usersArray = jsonObject.getAsJsonArray("items");
 
-        for (int i = 0; i < usersArray.size(); i++) {
-            JsonObject userObject = usersArray.get(i).getAsJsonObject();
+            for (int i = 0; i < usersArray.size(); i++) {
+                JsonObject userObject = usersArray.get(i).getAsJsonObject();
 
-            String username = userObject.has("display_name") ? userObject.get("display_name").getAsString() : null;
-            String profileUrl = userObject.has("link") ? userObject.get("link").getAsString() : null;
-            int reputation = userObject.has("reputation") ? userObject.get("reputation").getAsInt() : 0;
-            String location = userObject.has("location") ? userObject.get("location").getAsString() : null;
+                String username = getStringField(userObject, "display_name");
+                String profileUrl = getStringField(userObject, "link");
+                int reputation = getIntField(userObject, "reputation");
+                String location = getStringField(userObject, "location");
+                LocalDate lastActivityDate = getLastActivityDate(userObject);
 
-            // Convert last_activity_date to LocalDate
-            LocalDate lastActivityDate = null;
-            if (userObject.has("last_access_date")) {
-                long lastAccessDate = userObject.get("last_access_date").getAsLong();
-                lastActivityDate = Instant.ofEpochSecond(lastAccessDate).atZone(ZoneId.systemDefault()).toLocalDate();
+                int userId = userObject.get("user_id").getAsInt();
+
+                List<String> skills = fetchUserTags(userId);
+
+                DeveloperDTOModel developer = new DeveloperDTOModel(
+                        "StackOverflow",
+                        username,
+                        profileUrl,
+                        reputation,
+                        skills,
+                        location,
+                        lastActivityDate
+                );
+
+                developerList.add(developer);
             }
-
-            int userId = userObject.get("user_id").getAsInt();
-            List<String> skills = fetchUserTags(userId);
-
-            DeveloperDTOModel developer = new DeveloperDTOModel(
-                    "StackOverflow",  // platform
-                    username,
-                    profileUrl,
-                    reputation,
-                    skills,
-                    location,
-                    lastActivityDate
-            );
-
-            developerList.add(developer);
+        } catch (Exception e) {
+            LOGGER.error("Error parsing user data: {}", e.getMessage());
         }
 
         return developerList;
     }
 
     private List<String> fetchUserTags(int userId) {
+        LOGGER.info("Fetching tags for user {}", userId);
 
-        LOGGER.info("Метод был вызван но не рекурсия");
-        String url = "https://api.stackexchange.com/2.3/users/" + userId + "/tags?site=" + SITE;
-        Request request = new Request.Builder()
-                .url(url)
-                .build();
-
+        String url = "https://api.stackexchange.com/2.3/users/" + userId + "/tags?site=" + SITE + "&key=" + API_KEY;
         List<String> tags = new ArrayList<>();
-        try (Response response = client.newCall(request).execute()) {
-            if (response.code() == 429) { // Если API вернул Too Many Requests
-                LOGGER.warn("Received 429 Too Many Requests for user {}. Retrying in 1 second...", userId);
-                Thread.sleep(1000); // Ждём 1 секунду и повторяем запрос
-                LOGGER.info("Метод был вызван рекурсия");
-                return null;
-            }
 
-            if (response.isSuccessful() && response.body() != null) {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try (Response response = executeRequest(url)) {
+                if (response == null || response.body() == null) {
+                    LOGGER.warn("Empty response for tags request. Attempt {}/3", attempt);
+                    continue;
+                }
+
                 String responseBody = response.body().string();
                 JsonObject jsonObject = JsonParser.parseString(responseBody).getAsJsonObject();
-                JsonArray tagsArray = jsonObject.getAsJsonArray("items");
 
-                for (int i = 0; i < tagsArray.size(); i++) {
-                    JsonObject tagObject = tagsArray.get(i).getAsJsonObject();
-                    String tagName = tagObject.get("name").getAsString();
-                    tags.add(tagName);
+                if (jsonObject.has("backoff")) {
+                    int backoffSeconds = jsonObject.get("backoff").getAsInt();
+                    LOGGER.warn("Received backoff {}s for user {}. Retrying after delay...", backoffSeconds, userId);
+                    Thread.sleep(backoffSeconds * 1000L);
+                    continue;
                 }
-            } else {
-                String responseBody = response.body().string();
-                LOGGER.error("Failed to fetch tags for user {}: {} - Response: {}", userId, response.code(), responseBody);
+
+                return extractTags(jsonObject, userId);
+
+            } catch (IOException | InterruptedException e) {
+                LOGGER.error("Error fetching tags for user {}: {}. Attempt {}/3", userId, e.getMessage(), attempt);
+                waitBeforeRetry();
             }
-        } catch (IOException | InterruptedException e) {
-            LOGGER.error("Exception fetching tags for user {}: {}", userId, e.toString());
         }
+
         return tags;
+    }
+
+    private Response executeRequest(String url) throws IOException {
+        Request request = new Request.Builder().url(url).build();
+        return client.newCall(request).execute();
+    }
+
+    private List<String> extractTags(JsonObject jsonObject, int userId) {
+        List<String> tags = new ArrayList<>();
+
+        if (!jsonObject.has("items")) {
+            LOGGER.warn("No tags returned for user {}", userId);
+            return tags;
+        }
+
+        JsonArray tagsArray = jsonObject.getAsJsonArray("items");
+        for (int i = 0; i < tagsArray.size(); i++) {
+            JsonObject tagObject = tagsArray.get(i).getAsJsonObject();
+            tags.add(tagObject.get("name").getAsString());
+        }
+
+        return tags;
+    }
+
+    private void waitBeforeRetry() {
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException ignored) {}
+    }
+
+    private String getStringField(JsonObject jsonObject, String field) {
+        return jsonObject.has(field) ? jsonObject.get(field).getAsString() : null;
+    }
+
+    private int getIntField(JsonObject jsonObject, String field) {
+        return jsonObject.has(field) ? jsonObject.get(field).getAsInt() : 0;
+    }
+
+    private LocalDate getLastActivityDate(JsonObject userObject) {
+        if (userObject.has("last_access_date")) {
+            long lastAccessDate = userObject.get("last_access_date").getAsLong();
+            return Instant.ofEpochSecond(lastAccessDate).atZone(ZoneId.systemDefault()).toLocalDate();
+        }
+        return null;
     }
 }
