@@ -48,12 +48,12 @@ public class StackOverflowService {
         List<DeveloperDTOModel> developers = new ArrayList<>();
 
         try (Response response = executeRequest(url)) {
-            if (response != null && response.isSuccessful() && response.body() != null) {
+            if (response.isSuccessful() && response.body() != null) {
                 developers = parseUsers(response.body().string());
                 LOGGER.info("Successfully fetched and parsed {} users.", developers.size());
                 cachedDevelopers.addAll(developers);
             } else {
-                LOGGER.error("Error fetching users: {}", response != null ? response.code() : "null response");
+                LOGGER.error("Error fetching users: {}", response.code());
             }
         } catch (IOException e) {
             LOGGER.error("Exception during fetching users: {}", e.getMessage());
@@ -109,7 +109,7 @@ public class StackOverflowService {
 
         for (int attempt = 1; attempt <= 3; attempt++) {
             try (Response response = executeRequest(url)) {
-                if (response == null || response.body() == null) {
+                if (response.body() == null) {
                     LOGGER.warn("Empty response for tags request. Attempt {}/3", attempt);
                     continue;
                 }
