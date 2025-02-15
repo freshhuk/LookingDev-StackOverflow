@@ -6,6 +6,7 @@ import com.lookingdev.stackoverflow.Repository.DevelopersRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -33,11 +34,11 @@ public class ProfileProcessing {
         repository.saveAll(developers);
     }
 
-    public List<DeveloperDTOModel> getDevelopersDTO(String lastIndex){
+    public List<DeveloperDTOModel> getDevelopersDTO(int lastIndex){
 
-        Pageable pageable = PageRequest.of(0, LIMIT_USERS);
-        List<DeveloperProfile> developers = repository.findDevelopersWithLimit(lastIndex, pageable);
-        if (developers == null || developers.isEmpty()) {
+        Pageable pageable = PageRequest.of(lastIndex, LIMIT_USERS, Sort.by(Sort.Direction.ASC, "id"));
+        List<DeveloperProfile> developers = repository.findAll(pageable).getContent();
+        if (developers.isEmpty()) {
             return List.of(); // if data null or empty
         }
         return convertToDTO(developers);
