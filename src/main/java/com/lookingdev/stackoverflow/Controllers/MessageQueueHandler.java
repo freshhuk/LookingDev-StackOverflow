@@ -23,6 +23,8 @@ public class MessageQueueHandler {
             messageService.getStackOverflowUsers(message);
         } else if (message.getAction().equals(QueueAction.INIT_DB_STACK_OVERFLOW)) {
             messageService.initDB();
+        } else if (message.getAction().equals(QueueAction.GET_INIT_STATUS_STACK_OVERFLOW)) {
+            messageService.getInitStatus();
         }
     }
 

@@ -16,10 +16,14 @@ public class MessageService {
     @Value("${queueStackOverflowStatus.name}")
     private String queueStackName;
 
+    @Value("${queueStackOverflowStatus.int.name}")
+    private String queueStackOverflowInitStatus;
+
     private final ProfileProcessing profileService;
     private final RabbitTemplate rabbitTemplate;
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageService.class);
 
+    private String initStatus = "Wait...";
 
     @Autowired
     public MessageService(ProfileProcessing profileService, RabbitTemplate rabbitTemplate) {
@@ -27,9 +31,25 @@ public class MessageService {
         this.rabbitTemplate = rabbitTemplate;
     }
 
+    /**
+     * Method returns initialization status of StackOverflow microservice
+     *
+     */
+    public void getInitStatus(){
+        MessageStatus messageWithStatus = new MessageStatus();
+        messageWithStatus.setAction(QueueAction.GET_INIT_STATUS_STACK_OVERFLOW);
+        messageWithStatus.setStatus(initStatus);
+
+        sendStatusInQueue(queueStackOverflowInitStatus, messageWithStatus);
+    }
+
+    /**
+     * Method for initialization DB
+     */
     public void initDB() {
         try{
             profileService.initDatabase();
+            initStatus = "Done";
             LOGGER.info("init was successful");
         } catch (Exception ex){
             LOGGER.error("Error with adding user in db");
@@ -56,12 +76,22 @@ public class MessageService {
     }
 
     /**
-     * Method for sending status message in queue
+     * Method for sending data message in queue
      *
      * @param queueName queue name
      * @param message   message which be sent in the queue
      */
     private void sendDataInQueue(String queueName, MessageModel message) {
+        rabbitTemplate.convertAndSend(queueName, message);
+    }
+
+    /**
+     * Method for sending status message in queue
+     *
+     * @param queueName queue name
+     * @param message   message which be sent in the queue
+     */
+    private void sendStatusInQueue(String queueName, MessageStatus message) {
         rabbitTemplate.convertAndSend(queueName, message);
     }
 }
