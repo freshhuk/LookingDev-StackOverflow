@@ -5,10 +5,10 @@ FROM eclipse-temurin:21-jdk-alpine
 WORKDIR /app
 
 # Copy JAR-file in container
-COPY target/LookingDev-API-0.0.1-SNAPSHOT.jar app.jar
+COPY target/LookingDev-StackOverflow-0.0.1-SNAPSHOT.jar /app.jar
 
 # Port
-EXPOSE 8081
+EXPOSE 8082
 
 # Run app
 ENTRYPOINT ["java", "-jar", "/app.jar"]
