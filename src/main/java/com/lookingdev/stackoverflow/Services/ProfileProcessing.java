@@ -7,9 +7,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,11 +30,17 @@ public class ProfileProcessing {
         this.repository = repository;
     }
 
-
-    public void initDatabase(){
-        List<DeveloperProfile> developers = parseToDeveloperProfile(overflowService.fetchUsers());
-        repository.saveAll(developers);
+    @Async
+    public CompletableFuture<Void> initDatabase() {
+        return overflowService.fetchUsers()
+                .thenApply(this::parseToDeveloperProfile)
+                .thenAccept(repository::saveAll)
+                .exceptionally(ex -> {
+                    System.out.println("Error initializing database: " + ex.getMessage());
+                    return null;
+                });
     }
+
 
     public List<DeveloperDTOModel> getDevelopersDTO(int lastIndex){
 

@@ -10,6 +10,7 @@ import okhttp3.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -18,6 +19,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -38,10 +40,12 @@ public class StackOverflowService {
 
     private final List<DeveloperDTOModel> cachedDevelopers = new ArrayList<>();
 
-    public List<DeveloperDTOModel> fetchUsers() {
+
+    @Async
+    public CompletableFuture<List<DeveloperDTOModel>> fetchUsers() {
         if (!cachedDevelopers.isEmpty()) {
             LOGGER.info("Returning cached developer data.");
-            return cachedDevelopers;
+            return CompletableFuture.completedFuture(cachedDevelopers);
         }
 
         String url = BASE_URL + "?site=" + SITE + "&pagesize=" + USER_COUNT_IN_DB + "&key=" + API_KEY;
@@ -59,7 +63,7 @@ public class StackOverflowService {
             LOGGER.error("Exception during fetching users: {}", e.getMessage());
         }
 
-        return developers;
+        return CompletableFuture.completedFuture(developers);
     }
 
     private List<DeveloperDTOModel> parseUsers(String jsonResponse) {

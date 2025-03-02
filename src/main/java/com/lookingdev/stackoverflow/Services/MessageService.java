@@ -48,9 +48,14 @@ public class MessageService {
      */
     public void initDB() {
         try{
-            profileService.initDatabase();
-            initStatus = "Done";
-            LOGGER.info("init was successful");
+            profileService.initDatabase().thenRun( () -> {
+                initStatus = "Done";
+                LOGGER.info("init was successful");
+            }).exceptionally(ex -> {
+                initStatus = "Failed"; // If we get error, then set failed status
+                LOGGER.error("Error with init users {}", ex.getMessage());
+                return null;
+            });
         } catch (Exception ex){
             LOGGER.error("Error with adding user in db");
         }
