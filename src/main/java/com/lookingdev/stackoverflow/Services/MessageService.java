@@ -19,6 +19,8 @@ public class MessageService {
     @Value("${queueStackOverflowStatus.int.name}")
     private String queueStackOverflowInitStatus;
 
+
+
     private final ProfileProcessing profileService;
     private final RabbitTemplate rabbitTemplate;
     private static final Logger LOGGER = LoggerFactory.getLogger(MessageService.class);
@@ -61,6 +63,24 @@ public class MessageService {
         }
     }
 
+    public void getAllUsers(MessageStatus message){
+        try {
+            if (message.getAction().equals(QueueAction.GET_STACK_USER)) {
+                //Parsing message for get last entity index
+                int lastIndex = (Integer.parseInt(message.getStatus()));
+
+                MessageModel messageWithData = new MessageModel();
+                messageWithData.setAction(QueueAction.GET_ALL);
+                messageWithData.setDeveloperProfiles(profileService.getDevelopersDTO(lastIndex));
+
+                sendDataInQueue(queueStackName, messageWithData);
+                LOGGER.info("User was sent in queue ALL USERS");
+            }
+        } catch (Exception ex) {
+            LOGGER.error("Error with get Stack users {}", String.valueOf(ex));
+        }
+    }
+
     public void getStackOverflowUsers(MessageStatus message) {
 
         try {
@@ -73,10 +93,10 @@ public class MessageService {
                 messageWithData.setDeveloperProfiles(profileService.getDevelopersDTO(lastIndex));
 
                 sendDataInQueue(queueStackName, messageWithData);
-                LOGGER.info("User was sent in queue");
+                LOGGER.info("User was sent in queue ONLY STACK");
             }
         } catch (Exception ex) {
-            LOGGER.error("Error with get gitHub users {}", String.valueOf(ex));
+            LOGGER.error("Error with get stack users {}", String.valueOf(ex));
         }
     }
 

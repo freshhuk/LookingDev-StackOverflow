@@ -28,14 +28,11 @@ public class MessageQueueHandler {
         }
     }
 
-    /*
-    /**
-     * Receive Git status for get all data
 
-    @RabbitListener(queues = "GitStatusQueue")
+    @RabbitListener(queues = "GitSagaChainQueue")
     public void listenGitStatus(MessageStatus message){
-        if(message.getAction().equals(QueueAction.GET_ALL)){
-            messageService.getAllUsers();
+        if(message.getAction().equals(QueueAction.GET_STACK_USER)){
+            messageService.getAllUsers(message);
         }
-    }*/
+    }
 }
