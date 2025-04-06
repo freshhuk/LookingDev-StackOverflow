@@ -81,8 +81,11 @@ public class MessageService {
         }
     }
 
+    /**
+     * Method for send message with users to API microservice
+     * @param message message with users
+     */
     public void getStackOverflowUsers(MessageStatus message) {
-
         try {
             if (message.getAction().equals(QueueAction.GET_STACK_USER)) {
                 //Parsing message for get last entity index

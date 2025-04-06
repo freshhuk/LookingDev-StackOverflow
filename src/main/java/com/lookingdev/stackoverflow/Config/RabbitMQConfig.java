@@ -20,7 +20,6 @@ public class RabbitMQConfig {
 
 
 
-
     @Bean
     public CachingConnectionFactory connectionFactory(){
         CachingConnectionFactory connection = new CachingConnectionFactory("localhost");
